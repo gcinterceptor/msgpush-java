@@ -55,7 +55,7 @@ public class MsgPush {
 		public void index() throws InterruptedException {
 			byte[] byteArray = new byte[MSG_SIZE];
 
-			for (int i = 0; i <= MSG_SIZE; i++) {
+			for (int i = 0; i < MSG_SIZE; i++) {
 				byteArray[i] = (byte) i;
 			}
 
