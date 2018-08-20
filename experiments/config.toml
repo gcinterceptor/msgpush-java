@@ -21,23 +21,23 @@ kernel_version = "4.15.0-29-generic"
 exports = 'export outdir="stateless"; export expdir=${PWD}'
 
 # killall: kill all processes started by the experiment.
-killall = 'for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "killall java 2>/dev/null; rm gc.log shed_${expid}_${ip}.csv 2>/dev/null; killall mon.sh 2>/dev/null; killall gci-proxy 2>/dev/null; rm proxy.* 2>/dev/null;"; done'
+killall = 'for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "killall java 2>/dev/null; killall mon.sh 2>/dev/null; killall gci-proxy 2>/dev/null;"; done'
 
 # setup: setup the environment (VMs/servers), guaranteeing that everything need to start the experiment is there. For example, copy files and sync repositories.
 setup = 'git clone http://github.com/gcinterceptor/gci-java && cd gci-java/ && ./build.sh; mv core/src/main/java/libgc.so ${expdir}; cd ${expdir}; git clone http://github.com/gcinterceptor/msgpush-java && cd msgpush-java && mvn clean package; cp experiments/mon.sh ${expdir}; cd target/ && mv msgpush-0.0.1-SNAPSHOT.jar msgpush-java.jar; cp msgpush-java.jar ${expdir}; cd ${expdir}; for ip in $ip1 $ip2 $ip3 $ip4; do scp -i ${sshkey} mon.sh ubuntu@${ip}:~/; scp -i ${sshkey} msgpush-java.jar ubuntu@${ip}:~/; scp -i ${sshkey} libgc.so ubuntu@${ip}:~/; done; go get -u github.com/gcinterceptor/gci-proxy; go get -u github.com/julienschmidt/httprouter; cd $GOPATH/src/github.com/gcinterceptor/gci-proxy && go build; for ip in $ip1 $ip2 $ip3 $ip4; do scp -i ${sshkey} gci-proxy ubuntu@${ip}:~/; done; cd ${expdir}'
 
 # load: trigger the load.
-load = 'ssh -i ${sshkey} ubuntu@${lb} "sudo rm /var/log/nginx/*.log; sudo service nginx restart; killall vegeta >/dev/null 2>&1; echo \"GET http://127.0.0.1/\" | ./vegeta attack -duration=120s -rate=30 | tee results.bin | ./vegeta report >client_${expid}.out 2>client_${expid}.err";'
+load = 'ssh -i ${sshkey} ubuntu@${lb} "sudo rm /var/log/nginx/access.log; sudo /etc/init.d/nginx restart; echo \"GET http://localhost/\" | ./vegeta attack -duration=60s -rate=80 >/dev/null; sudo rm /var/log/nginx/*.log; sudo service nginx restart; killall vegeta >/dev/null 2>&1; echo \"GET http://127.0.0.1/\" | ./vegeta attack -duration=120s -rate=30 | tee results.bin | ./vegeta report >client_${expid}.out 2>client_${expid}.err";'
 
 # fetch_results: fetches experiment results.
 fetch_results = 'scp -i ${sshkey} ubuntu@${lb}:~/*_${expid}* ${outdir}; for ip in $ip1 $ip2 $ip3 $ip4; do scp -i ${sshkey} ubuntu@${ip}:~/*_${expid}_${ip}* ${outdir}; done'
 
 # cleanup: killall processes, removes files and revert configuration changes done by the experiment run.
-cleanup = 'ssh -i ${sshkey} ubuntu@${lb} "rm *${expid}*"; for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "killall java; killall mon.sh; killall gci-proxy 2>/dev/null; rm proxy.* 2>/dev/null; rm *${expid}_${ip}*"; done'
+cleanup = 'ssh -i ${sshkey} ubuntu@${lb} "rm *${expid}*"; for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "rm proxy.* 2>/dev/null; rm *${expid}_${ip}*"; done'
 
     [execution.no_gci]
     # start: start all processes needed by the experiment run. Update some values to execute correctly the experiment.
-    start = 'for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "killall java 2>/dev/null; rm gc.log shed.csv 2>/dev/null; killall mon.sh 2>/dev/null; USE_GCI=false WINDOW_SIZE=1 MSG_SIZE=262144 YOUNG_GEN=256000000 nohup java -server -Xms512m -Xmx512m -Xlog:gc:file=gc.log  -XX:+UseG1GC -XX:+DisableExplicitGC -Dserver.port=3000 -jar  msgpush-java.jar  >msgpush-java_${expid}_${ip}.out 2>msgpush-java_${expid}_${ip}.err & nohup ./mon.sh >cpu_${expid}_${ip}.csv 2>/dev/null &"; done;'
+    start = 'for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "USE_GCI=false WINDOW_SIZE=1 MSG_SIZE=262144 YOUNG_GEN=256000000 nohup java -server -Xms512m -Xmx512m -Xlog:gc:file=gc.log  -XX:+UseG1GC -XX:+DisableExplicitGC -Dserver.port=3000 -jar  msgpush-java.jar  >msgpush-java_${expid}_${ip}.out 2>msgpush-java_${expid}_${ip}.err & nohup ./mon.sh >cpu_${expid}_${ip}.csv 2>/dev/null &"; done;'
     
         [execution.no_gci.1]
         # exports: export commands which should be used to export common environment variables.
@@ -56,7 +56,7 @@ cleanup = 'ssh -i ${sshkey} ubuntu@${lb} "rm *${expid}*"; for ip in $ip1 $ip2 $i
         exports = 'export expid="nogci_java_5"'
 
     [execution.gci]
-    start = 'for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "killall java 2>/dev/null; rm gc.log shed.csv 2>/dev/null; killall mon.sh 2>/dev/null; USE_GCI=true WINDOW_SIZE=1 MSG_SIZE=262144 YOUNG_GEN=256000000 nohup java -Djvmtilib=~/libgc.so -server -Xms512m -Xmx512m -Xlog:gc:file=gc.log -XX:+UseG1GC -XX:+ExplicitGCInvokesConcurrent -XX:+UnlockExperimentalVMOptions -XX:G1NewSizePercent=50 -XX:G1MaxNewSizePercent=50 -Dserver.port=8080 -jar  msgpush-java.jar  >msgpush-java_${expid}_${ip}.out 2>msgpush-java_${expid}_${ip}.err & nohup ./mon.sh >cpu_${expid}_${ip}.csv 2>/dev/null &"; done; ssh -i ${sshkey} ubuntu@${ip} "killall gci-proxy 2>/dev/null; rm proxy.* 2>/dev/null; ./gci-proxy --port 3000 --url http://localhost:8080 --ygen=67108864 --tgen=6710886 >proxy_${expid}_${ip}.out 2>proxy_${expid}_${ip}.err &";'
+    start = 'for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "USE_GCI=true WINDOW_SIZE=1 MSG_SIZE=262144 YOUNG_GEN=256000000 nohup java -Djvmtilib=~/libgc.so -server -Xms512m -Xmx512m -Xlog:gc:file=gc.log -XX:+UseG1GC -XX:+ExplicitGCInvokesConcurrent -XX:+UnlockExperimentalVMOptions -XX:G1NewSizePercent=50 -XX:G1MaxNewSizePercent=50 -Dserver.port=8080 -jar  msgpush-java.jar  >msgpush-java_${expid}_${ip}.out 2>msgpush-java_${expid}_${ip}.err & nohup ./mon.sh >cpu_${expid}_${ip}.csv 2>/dev/null &"; done; ssh -i ${sshkey} ubuntu@${ip} "killall gci-proxy 2>/dev/null; rm proxy.* 2>/dev/null; ./gci-proxy --port 3000 --url http://localhost:8080 --ygen=67108864 --tgen=6710886 >proxy_${expid}_${ip}.out 2>proxy_${expid}_${ip}.err &";'
         
         [execution.gci.1]
         exports = 'export expid="gci_java_1"'
