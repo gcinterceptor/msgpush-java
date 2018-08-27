@@ -1,5 +1,11 @@
 title = "Mspush-Java's experiments."
 
+# Environment vars required:
+# * JAVA_HOME: home of your java instalation, e.g. /usr/lib/jvm/java-10.0.1-openjdk-amd64
+# * ip1, ip2, ip3, ip4: ip addresses of experiment cluster machines
+# * sshkey: path to the public key to access cluster machines
+# $ lb: ip address of the machine where the load balancer should run
+
 [owner]
 name = "David Ferreira Quaresma"
 email = "davidferreiraquaresma@gmail.com"
