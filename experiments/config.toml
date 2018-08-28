@@ -27,7 +27,7 @@ kernel_version = "4.15.0-29-generic"
 exports = 'export outdir="stateless"; export expdir=${PWD}'
 
 # killall: kill all processes started by the experiment.
-killall = 'for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "killall java 2>/dev/null; killall mon.sh 2>/dev/null; killall gci-proxy 2>/dev/null;"; done'
+killall = 'for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "killall java 2>/dev/null; killall mon.sh 2>/dev/null; killall gci-proxy 2>/dev/null"; done'
 
 # setup: setup the environment (VMs/servers), guaranteeing that everything need to start the experiment is there. For example, copy files and sync repositories.
 setup = 'for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i $sshkey ubuntu@${ip} "wget https://download.java.net/java/GA/jdk10/10.0.2/19aef61b38124481863b1413dce1855f/13/openjdk-10.0.2_linux-x64_bin.tar.gz; tar -xzvf openjdk-10.0.2_linux-x64_bin.tar.gz; sudo mkdir -p /usr/lib/jvm/; sudo mv jdk-10.0.2 /usr/lib/jvm/java-10.0.2-openjdk-amd64/; sudo update-alternatives --install \"/usr/bin/java\" java \"/usr/lib/jvm/java-10.0.2-openjdk-amd64/bin/java\" 1; sudo update-alternatives --install \"/usr/bin/javac\" javac \"/usr/lib/jvm/java-10.0.2-openjdk-amd64/bin/javac\" 1; wget http://www-us.apache.org/dist/maven/maven-3/3.5.4/binaries/apache-maven-3.5.4-bin.tar.gz;tar xzvf apache-maven-3.5.4-bin.tar.gz; sudo mv apache-maven-3.5.4 /opt/maven; echo \"export JAVA_HOME=/usr/lib/jvm/java-10.0.2-openjdk-amd64\" > mavenenv.sh; echo \"export M2_HOME=/opt/maven\" >> mavenenv.sh; sudo echo \"export PATH=/opt/maven/bin:\${PATH}\" >> mavenenv.sh; chmod +x mavenenv.sh; source mavenenv.sh; sudo mv mavenenv.sh /etc/profile.d/;  git clone http://github.com/gcinterceptor/gci-java; cd gci-java/ && ./build.sh; cd ; mv gci-java/core/src/main/java/libgc.so ~/; git clone http://github.com/gcinterceptor/msgpush-java;  cd msgpush-java; mvn clean package; mv target/msgpush-0.0.1-SNAPSHOT.jar ~/msgpush-java.jar; cp experiments/mon.sh ~/; chmod +x ~/mon.sh; cd ~/; wget https://github.com/gcinterceptor/gci-proxy/releases/download/0.3/gci-proxy_linux_amd64; mv gci-proxy_linux_amd64 gci-proxy"; chmod +x gci-proxy; done'
@@ -39,7 +39,7 @@ load = 'ssh -i ${sshkey} ubuntu@${lb} "sudo rm /var/log/nginx/access.log; sudo /
 fetch_results = 'scp -i ${sshkey} ubuntu@${lb}:~/*_${expid}* ${outdir}; for ip in $ip1 $ip2 $ip3 $ip4; do scp -i ${sshkey} ubuntu@${ip}:~/*_${expid}_${ip}* ${outdir}; done'
 
 # cleanup: killall processes, removes files and revert configuration changes done by the experiment run.
-cleanup = 'ssh -i ${sshkey} ubuntu@${lb} "rm *_${expid}*"; for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "rm *_${expid}_${ip}*"; done'
+cleanup = 'ssh -i ${sshkey} ubuntu@${lb} "rm *_${expid}*"; for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "killall java 2>/dev/null; killall mon.sh 2>/dev/null; killall gci-proxy 2>/dev/null; rm *_${expid}_${ip}*"; done'
 
     [execution.no_gci]
     # start: start all processes needed by the experiment run. Update some values to execute correctly the experiment.
@@ -62,7 +62,7 @@ cleanup = 'ssh -i ${sshkey} ubuntu@${lb} "rm *_${expid}*"; for ip in $ip1 $ip2 $
         exports = 'export expid="nogci_java_5"'
 
     [execution.gci]
-    start = 'for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "USE_GCI=true WINDOW_SIZE=0 MSG_SIZE=262144 nohup java -Djvmtilib=/home/ubuntu/libgc.so -server -Xms128m -Xmx128m -Xlog:gc:file=gc_${expid}_${ip}.log -XX:+UseG1GC -XX:+ExplicitGCInvokesConcurrent -XX:+UnlockExperimentalVMOptions -XX:G1NewSizePercent=50 -XX:G1MaxNewSizePercent=50 -Dserver.port=8080 -jar  msgpush-java.jar  >msgpush-java_${expid}_${ip}.out 2>msgpush-java_${expid}_${ip}.err & nohup ./mon.sh >cpu_${expid}_${ip}.csv 2>cpu_${expid}_${ip}.err & nohup ./gci-proxy --port 3000 --url http://localhost:8080 --ygen=67108864 --tgen=6710886 >proxy_${expid}_${ip}.out 2>proxy_${expid}_${ip}.err &"; done'
+    start = 'for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "USE_GCI=true WINDOW_SIZE=0 MSG_SIZE=262144 nohup java -Djvmtilib=/home/ubuntu/libgc.so -server -Xms128m -Xmx128m -Xlog:gc:file=gc_${expid}_${ip}.log -XX:+UseG1GC -XX:+ExplicitGCInvokesConcurrent -XX:+UnlockExperimentalVMOptions -XX:G1NewSizePercent=50 -XX:G1MaxNewSizePercent=50 -Dserver.port=8080 -jar  msgpush-java.jar  >msgpush-java_${expid}_${ip}.out 2>msgpush-java_${expid}_${ip}.err & nohup ./mon.sh >cpu_${expid}_${ip}.csv 2>cpu_${expid}_${ip}.err & nohup ./gci-proxy --port 3000 --url http://localhost:8080 --ygen=67108864 --tgen=67108864 >proxy_${expid}_${ip}.out 2>proxy_${expid}_${ip}.err &"; done'
         
         [execution.gci.1]
         exports = 'export expid="gci_java_1"'
