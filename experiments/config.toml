@@ -39,7 +39,7 @@ load = 'ssh -i ${sshkey} ubuntu@${lb} "sudo rm /var/log/nginx/access.log; sudo /
 fetch_results = 'scp -i ${sshkey} ubuntu@${lb}:~/*_${expid}* ${outdir}; for ip in $ip1 $ip2 $ip3 $ip4; do scp -i ${sshkey} ubuntu@${ip}:~/*_${expid}_${ip}* ${outdir}; done'
 
 # cleanup: killall processes, removes files and revert configuration changes done by the experiment run.
-cleanup = 'ssh -i ${sshkey} ubuntu@${lb} "rm *${expid}*"; for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "rm *${expid}_${ip}*"; done'
+cleanup = 'ssh -i ${sshkey} ubuntu@${lb} "rm *_${expid}*"; for ip in $ip1 $ip2 $ip3 $ip4; do ssh -i ${sshkey} ubuntu@${ip} "rm *_${expid}_${ip}*"; done'
 
     [execution.no_gci]
     # start: start all processes needed by the experiment run. Update some values to execute correctly the experiment.
